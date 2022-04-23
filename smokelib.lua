@@ -53,20 +53,56 @@ function GetClosestPlayerWithRange(range)
         local vdist = SYSTEM.VDIST2(ourCoords.x, ourCoords.y, ourCoords.z, tarcoords.x, tarcoords.y, tarcoords.z)
         if vdist <= rangesq then
             local handle = entities.pointer_to_handle(pedPointers[i])
-            tbl[#tbl+1] = handle
+            if (not players.is_in_interior(NETWORK.NETWORK_GET_PLAYER_INDEX_FROM_PED(handle))) and (PED.IS_PED_A_PLAYER(handle)) then tbl[#tbl+1] = handle end
         end
     end
     if tbl ~= nil then
         local dist = 999999
         for i = 1, #tbl do
             if tbl[i] ~= GetLocalPed() then
-                if PED.IS_PED_A_PLAYER(tbl[i]) and (not players.is_in_interior(NETWORK.NETWORK_GET_PLAYER_INDEX_FROM_PED(tbl[i]))) then
-                    local tarcoords = getEntityCoords(tbl[i])
-                    local e = SYSTEM.VDIST2(ourCoords.x, ourCoords.y, ourCoords.z, tarcoords.x, tarcoords.y, tarcoords.z)
-                    if e < dist then
-                        dist = e
-                        closest_player = tbl[i]
-                    end
+                local tarcoords = getEntityCoords(tbl[i])
+                local e = SYSTEM.VDIST2(ourCoords.x, ourCoords.y, ourCoords.z, tarcoords.x, tarcoords.y, tarcoords.z)
+                if e < dist then
+                    dist = e
+                    closest_player = tbl[i]
+                end
+            end
+        end
+    end
+    if closest_player ~= 0 then
+        return closest_player
+    else
+        return nil
+    end
+end
+
+function GetClosestPlayerWithRange_PIDBlacklist(range, blacklistedPIDsTable)
+    local pedPointers = entities.get_all_peds_as_pointers()
+    local rangesq = range * range
+    local ourCoords = getEntityCoords(GetLocalPed())
+    local tbl = {}
+    local closest_player = 0
+    for _,ped in pairs(pedPointers) do
+        local tarcoords = entities.get_position(ped)
+        local vdist = SYSTEM.VDIST2(ourCoords.x, ourCoords.y, ourCoords.z, tarcoords.x, tarcoords.y, tarcoords.z)
+        if vdist <= rangesq then
+            local pedhandle = entities.pointer_to_handle(ped)
+            local playerID = NETWORK.NETWORK_GET_PLAYER_INDEX_FROM_PED(pedhandle)
+            if (not players.is_in_interior(playerID)) and (PED.IS_PED_A_PLAYER(pedhandle)) and (tarcoords.z > 0 --[[below ground/interior check]]) and (not blacklistedPIDsTable[playerID]) then
+                tbl[#tbl+1] = pedhandle
+            end
+        end
+    end
+    --looping through pointers done
+    if #tbl ~= 0 then
+        local dist = 99999999
+        for i, v in pairs(tbl) do
+            if v ~= GetLocalPed() then
+                local tcoords = getEntityCoords(v)
+                local e = SYSTEM.VDIST2(ourCoords.x, ourCoords.y, ourCoords.z, tcoords.x, tcoords.y, tcoords.z)
+                if e < dist then
+                    dist = e
+                    closest_player = v
                 end
             end
         end
@@ -141,7 +177,7 @@ function SilentAimbotShoot(target, legit, head, body, pelvis, legs, damage, weap
     if PED.IS_PED_IN_ANY_VEHICLE(target) then
         veh = PED.GET_VEHICLE_PED_IS_IN(target, false)
     end
-    if legit then
+    if (legit) and (ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(localPed, target, 17) --[[Check if we have line-of-sight, beccause it's useless shooting w/o it.]]) then
         local ouroff = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(localPed, 0, 1.5, 0.7)
         if head then
             ShootBulletIgnoreEntity(ouroff, headc, damage, true, weaponHash, localPed, true, false, speed, veh, true)
