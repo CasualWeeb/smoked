@@ -3,16 +3,15 @@
 -- all made by me, no skids here. nope. nahh
 util.require_natives(1640181023)
 require("smokelib")
+util.toast("loaded smokelib")
 require("Universal_WeaponsNamesHashesTable")
-require("Universal_ped_list")
+util.toast("Loaded Universal Weapons Hashes")
 util.keep_running()
 local alist = false
 local hgui = false
 local hgui_enabled = false
 local hgui_smoke = directx.create_texture(filesystem.resources_dir() .. "smoked.png")
 local hgui_cigarrette = directx.create_texture(filesystem.resources_dir() .. "cigarrette.png")
-local tab1x = 0.1
-local tab1y = 0.1
 
 --ease of use variables
 local menuroot = menu.my_root()
@@ -34,9 +33,6 @@ local function playerFeatures(pid)
     menu.toggle(playerRoot, "Blacklist Player from Aimbot", {"blacklist"}, "", function (toggle)
         AIM_BLACKLIST[pid] = toggle
     end)
-    menu.action(playerRoot, "test", {}, "", function ()
-        util.toast("worked!")
-    end)
 end
 
 players.on_join(playerFeatures)
@@ -54,7 +50,7 @@ menu.divider(menuroot, "Smoked.lua")
 --     DrawText(0.5, 0.5, "TTT", 1, 0.6, WhiteText, false)
 -- end)
 
-local oppressor_aimbot = menu.list(menuroot, "Oppressor Aimbot", {}, "")
+local oppressor_aimbot = menu.list(menuroot, "Oppressor Aimbot", {"smokeoppressoraim"}, "")
 local missile_speed = 100
 local missile_ptfx = false
 menu.toggle(oppressor_aimbot, FEATURES[1][2], {}, "", function (on)
@@ -70,7 +66,7 @@ menu.toggle(oppressor_aimbot, FEATURES[1][2], {}, "", function (on)
         local localPed = getPlayerPed(players.user())
         local localcoords = getEntityCoords(localPed)
         local Missile = OBJECT.GET_CLOSEST_OBJECT_OF_TYPE(localcoords.x, localcoords.y, localcoords.z, 10, rockethash, false, true, true, true)
-        local closestPlayer = GetClosestPlayerWithRange(500)
+        local closestPlayer = GetClosestPlayerWithRange_PIDBlacklist(500, AIM_BLACKLIST)
         if (Missile ~= 0) and (closestPlayer) and (not PED.IS_PED_DEAD_OR_DYING(closestPlayer)) then
             if ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(localPed, closestPlayer, 17) then
                 NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(Missile)
@@ -117,7 +113,7 @@ local silent_aimbot_head = false
 local silent_aimbot_body = false
 local silent_aimbot_pelvis = false
 local silent_aimbot_legs = false
-menu.toggle(silent_aimbot, FEATURES[2][2], {"silentaim"}, "Improved silent aimbot, to disable firing upon shooting.", function (on)
+menu.toggle(silent_aimbot, FEATURES[2][2], {"smokesilentaim"}, "Improved silent aimbot, to disable firing upon shooting.", function (on)
     local ourPed = GetLocalPed()
     FEATURES[2][1] = on
     SilentAimbot = on
@@ -175,6 +171,19 @@ for i = 1, #GLOBAL_WEAPONS_NAMES_HASHES_TABLE do
     end)
 end
 
+local function toasttest()
+    util.toast("activated!")
+end
+local test1
+local test2
+test1 = 0.5
+test2 = 0.5
+local test3
+test3 = false
+menu.toggle_loop(menuroot, "test", {}, "", function ()
+    test1, test2, test3 = MakeGuiButton(test1, test2, 0.005, 0.001, BlackText, WhiteText, WhiteText, 0.8, "Text1", "text2", 18, 348, toasttest, false, test3)
+end)
+
 --===================================================================================================================
 --===================================================================================================================
 --===================================================================================================================
@@ -216,10 +225,10 @@ menu.toggle(menuroot, "Enable ArrayList", {}, "", function (on)
     util.toast("Arraylist " .. tostring(alist))
 end)
 
+local tab1x, tab1y = 0.2, 0.1
 local blackBGAlpha = 0.4
 local hgui_freeze = false
 local hguilist = menu.list(menuroot, "Hacked Client GUI", {}, "")
-local hgui_saim = false
 menu.toggle(hguilist, "Enable Hacked Client GUI", {}, "Bind this to a key.", function (toggle)
     hgui = toggle
     local plrot = ENTITY.GET_ENTITY_ROTATION(localped, 2)
@@ -228,6 +237,7 @@ menu.toggle(hguilist, "Enable Hacked Client GUI", {}, "Bind this to a key.", fun
         -- <> <> <> <> Background Stuff <> <> <> <> --
         DrawRect(0.0, 0.0, 1.0, 1.0, {r = 0, g = 0, b = 0, a = blackBGAlpha})
         DrawTexture(hgui_smoke, 0.05, 0.05, 0.5, 0.5, 0.5, 0.5, 0, WhiteText)
+        DrawText(0.5, 0.55, "Remember to hold Right-Click When Dragging Stuff ;)", ALIGN_CENTRE, 0.4, WhiteText, false)
         -- <> <> <> <> Background Stuff <> <> <> <> --
 
         -- <> <> <> <> Freeze Stuff <> <> <> <> --
@@ -253,14 +263,20 @@ menu.toggle(hguilist, "Enable Hacked Client GUI", {}, "Bind this to a key.", fun
 
         --176 || INPUT_CELLPHONE_SELECT || ENTER / LEFT MOUSE BUTTON
         --DrawRectUsingMiddlePoint(0.5, 0.5, 0.05, 0.05, WhiteText)
-        local tab1width, tab1length = 0.05, 0.05
-        DrawRectWithOutlineUsingMiddlePoint(tab1x, tab1y, tab1width, tab1length, BlackText, WhiteText, 0.0005)
+        local check1
+        if not SilentAimbot then
+            check1 = DrawRect_Outline_MidPoint_Text(tab1x, tab1y, 0.005, 0.001, BlackText, WhiteText, WhiteText, 0.8, "Silent Aimbot" .. " (off)")
+        else
+            check1 = DrawRect_Outline_MidPoint_Text(tab1x, tab1y, 0.005, 0.001, BlackText, WhiteText, WhiteText, 0.8, "Silent Aimbot" .. " (on)")
+        end
         PAD.DISABLE_CONTROL_ACTION(0, 176, true)
-        if CheckForControlPressedOnScreen(tab1x - tab1width, tab1y - tab1length, tab1x + tab1width, tab1y + tab1length, 348) then --348 || INPUT_MAP_POI || SCROLLWHEEL BUTTON (PRESS)
+        if CheckForControlPressedOnScreen(check1[1], check1[2], check1[3], check1[4], 348) then --348 || INPUT_MAP_POI || SCROLLWHEEL BUTTON (PRESS)
             tab1x = xx
             tab1y = yy
         end
-
+        if CheckForControlJustPressedOnScreen(check1[1], check1[2], check1[3], check1[4], 18) then --237	INPUT_CURSOR_ACCEPT	LEFT MOUSE BUTTON ><<> 18	INPUT_SKIP_CUTSCENE	ENTER / LEFT MOUSE BUTTON / SPACEBAR
+            menu.trigger_commands("smokesilentaim")
+        end
         wait()
     end
     ENTITY.FREEZE_ENTITY_POSITION(GetLocalPed(), false)

@@ -154,6 +154,18 @@ function DrawRectWithOutlineUsingMiddlePoint(pointx, pointy, width, height, colo
     --right rectangle
     directx.draw_rect(topLeft.x + width, topLeft.y - amountpadding, amountpadding, height + amountpadding * 2, colorpadding)
 end
+function DrawRect_Outline_MidPoint_Text(pointx, pointy, amountpaddingfromtext, amountoutline, colormain, coloroutline, colortext, scaletext, stringtext)
+    local txtw, txth = directx.get_text_size(stringtext, scaletext)
+    DrawRectWithOutlineUsingMiddlePoint(pointx, pointy, txtw + (amountpaddingfromtext * 2), txth + (amountpaddingfromtext * 2), colormain, coloroutline, amountoutline)
+    --draw text below this one, since it renders last, therefore on top.
+    directx.draw_text(pointx, pointy, stringtext, ALIGN_CENTRE, scaletext, colortext, false)
+    --return for calculating inputs in the area
+    local x1 = (pointx - txtw - amountpaddingfromtext - amountoutline) --[[startx]]
+    local y1 = (pointy - txth - amountpaddingfromtext - amountoutline) --[[starty]]
+    local x2 = (pointx + txtw + amountpaddingfromtext + amountoutline) --[[endx]]
+    local y2 = (pointy + txth + amountpaddingfromtext + amountoutline) --[[endy]]
+    return {x1, y1, x2, y2}
+end
 function DrawTexture(id, sizex, sizey, centerx, centery, posx, posy, rotation, color)
     directx.draw_texture(id, sizex, sizey, centerx, centery, posx, posy, rotation, color)
 end
@@ -281,4 +293,39 @@ function CheckForControlPressedOnScreen(startx, starty, endx, endy, intcontrol)
         end
     end
     return false
+end
+
+function MakeGuiButton(x, y, distfromtext, outlinewidth, colormain, coloroutline, colortext, scaletext, stringtext1, stringtext2, buttonpressactivate, buttonpressdrag, funcToTrigger, commandToTrigger, defaultactive)
+    local mX, mY = GetCursorLocation() --get cursor location
+    local retX, retY = x, y
+    local ac
+    ac = defaultactive
+    local bc1
+    HUD._SET_MOUSE_CURSOR_ACTIVE_THIS_FRAME()
+    --String drawing for active state.
+    if not ac then --if it's false, then we do text option 1
+        bc1 = DrawRect_Outline_MidPoint_Text(x, y, distfromtext, outlinewidth, colormain, coloroutline, colortext, scaletext, stringtext1)
+    elseif ac then -- if it's true, then we do text option 2
+        bc1 = DrawRect_Outline_MidPoint_Text(x, y, distfromtext, outlinewidth, colormain, coloroutline, colortext, scaletext, stringtext2)
+    end
+    if CheckForControlJustPressedOnScreen(bc1[1], bc1[2], bc1[3], bc1[4], buttonpressactivate) then
+        if funcToTrigger then
+            funcToTrigger()
+        elseif commandToTrigger then
+            menu.trigger_commands(tostring(commandToTrigger))
+        end
+        ac = not ac
+    end
+    if CheckForControlPressedOnScreen(bc1[1], bc1[2], bc1[3], bc1[4], buttonpressdrag) then
+        retX = mX
+        retY = mY
+    end
+
+    return retX, retY, ac
+
+    --returns button top left x,y || bottom right x,y >|> to use for checking for button presses
+    --[[at the end we need to return:
+        -active string (1/2). We will need to use this as a param for running the func next frame.
+        -dragged x,y. We will need to use this as a param for running the func next frame.
+    ]]
 end
