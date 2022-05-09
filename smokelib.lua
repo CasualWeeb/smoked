@@ -15,6 +15,41 @@ function GetColorFrom255(r, g, b, a)
     return {r = red, g = green, b = blue, a = alpha}
 end
 
+function RainbowRGB(h, s, v, speed)
+    local hh = h
+    if hh >= 360 then
+        hh = 0
+    end
+    local rr, gg, bb = HSV_C(hh, s, v)
+    hh = hh + speed
+    return rr, gg, bb, hh --returns hh for reuse of the func
+end
+
+-- Converts HSV to RGB. (input and output range: 0 - 1)
+-- https://love2d.org/wiki/HSV_color
+function HSV_C(h, s, v)
+    h = h / 360 --360, for all degrees
+    if s <= 0 then return v,v,v end
+    h = h*6
+    local c = v*s
+    local x = (1-math.abs((h%2)-1))*c
+    local m,r,g,b = (v-c), 0, 0, 0
+    if h < 1 then
+        r, g, b = c, x, 0
+    elseif h < 2 then
+        r, g, b = x, c, 0
+    elseif h < 3 then
+        r, g, b = 0, c, x
+    elseif h < 4 then
+        r, g, b = 0, x, c
+    elseif h < 5 then
+        r, g, b = x, 0, c
+    else
+        r, g, b = c, 0, x
+    end
+    return r+m, g+m, b+m
+end
+
 function GetPlayerNameFromPed(ped)
     local playerID = NETWORK.NETWORK_GET_PLAYER_INDEX_FROM_PED(ped)
     local playerName = NETWORK.NETWORK_PLAYER_GET_NAME(playerID)
@@ -112,6 +147,19 @@ function GetClosestPlayerWithRange_PIDBlacklist(range, blacklistedPIDsTable)
     else
         return nil
     end
+end
+
+function GetGroundAtCoord(v3int)
+    local success, ground_z
+    if v3int then
+        local tbl = GetTableFromV3Instance(v3int)
+        repeat
+            STREAMING.REQUEST_COLLISION_AT_COORD(tbl.x, tbl.y, tbl.z)
+            success, ground_z = util.get_ground_z(tbl.x, tbl.y)
+            util.yield()
+        until success
+    end
+    return ground_z
 end
 
 function GetTableFromV3Instance(v3int)
@@ -222,12 +270,20 @@ function SilentAimbotShoot(target, legit, head, body, pelvis, legs, damage, weap
     end
 end
 
+--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===
+--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===
+--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===
+
 ---Array List---
 
 FEATURES = {
     {false, "Oppressor MKII Aimbot"},
     {false, "Silent Aimbot (Better)"}
 }
+
+--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===
+--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===
+--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===--===
 
 function GetIntFromStrTBL(tbl, str)
     for index, string in tbl do
@@ -295,7 +351,7 @@ function CheckForControlPressedOnScreen(startx, starty, endx, endy, intcontrol)
     return false
 end
 
-function MakeGuiButton(x, y, distfromtext, outlinewidth, colormain, coloroutline, colortext, scaletext, stringtext1, stringtext2, buttonpressactivate, buttonpressdrag, funcToTrigger, commandToTrigger, defaultactive)
+function MakeGuiButton_Text(x, y, distfromtext, outlinewidth, colormain, coloroutline, colortext, scaletext, stringtext1, stringtext2, buttonpressactivate, buttonpressdrag, funcToTrigger, commandToTrigger, defaultactive)
     local mX, mY = GetCursorLocation() --get cursor location
     local retX, retY = x, y
     local ac
@@ -309,12 +365,12 @@ function MakeGuiButton(x, y, distfromtext, outlinewidth, colormain, coloroutline
         bc1 = DrawRect_Outline_MidPoint_Text(x, y, distfromtext, outlinewidth, colormain, coloroutline, colortext, scaletext, stringtext2)
     end
     if CheckForControlJustPressedOnScreen(bc1[1], bc1[2], bc1[3], bc1[4], buttonpressactivate) then
+        ac = not ac
         if funcToTrigger then
             funcToTrigger()
         elseif commandToTrigger then
             menu.trigger_commands(tostring(commandToTrigger))
         end
-        ac = not ac
     end
     if CheckForControlPressedOnScreen(bc1[1], bc1[2], bc1[3], bc1[4], buttonpressdrag) then
         retX = mX
@@ -328,4 +384,31 @@ function MakeGuiButton(x, y, distfromtext, outlinewidth, colormain, coloroutline
         -active string (1/2). We will need to use this as a param for running the func next frame.
         -dragged x,y. We will need to use this as a param for running the func next frame.
     ]]
+end
+
+function DrawBackgroundGUI(hgui_freeze, blackBGAlpha, hgui_smoke)
+    local localped = GetLocalPed()
+    -- <> <> <> <> Background Stuff <> <> <> <> --
+    DrawRect(0.0, 0.0, 1.0, 1.0, {r = 0, g = 0, b = 0, a = blackBGAlpha})
+    DrawTexture(hgui_smoke, 0.05, 0.05, 0.5, 0.5, 0.5, 0.5, 0, WhiteText)
+    DrawText(0.5, 0.55, "Remember to hold Right-Click When Dragging Stuff ;)", ALIGN_CENTRE, 0.4, WhiteText, false)
+    -- <> <> <> <> Background Stuff <> <> <> <> --
+
+    -- <> <> <> <> Freeze Stuff <> <> <> <> --
+    if hgui_freeze then
+        ENTITY.FREEZE_ENTITY_POSITION(localped, true)
+    else ENTITY.FREEZE_ENTITY_POSITION(localped, false) end
+    -- <> <> <> <> Freeze Stuff <> <> <> <> --
+
+    -- <> <> <> <> Attack Stuff <> <> <> <> --
+    PLAYER.DISABLE_PLAYER_FIRING(players.user(), true)
+    -- <> <> <> <> Attack Stuff <> <> <> <> --
+end
+
+function DrawCursorGUI(hgui_cigarrette)
+    -- <> <> <> <> Cursor Draw <> <> <> <> -- (drawn at the bottom to make cursor render over the thing)
+    --HUD._SET_MOUSE_CURSOR_ACTIVE_THIS_FRAME()
+    local xx, yy = GetCursorLocation()
+    DrawTexture(hgui_cigarrette, 0.006, 0.006, xx, yy, xx, yy, 0, WhiteText)
+    -- <> <> <> <> Cursor Draw <> <> <> <> --
 end

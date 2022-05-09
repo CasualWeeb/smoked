@@ -42,13 +42,14 @@ players.dispatch_on_join()
 
 menu.divider(menuroot, "Smoked.lua")
 
--- menu.toggle_loop(menuroot, "text test", {}, "", function ()
---     local p = 0.008
---     local aa, bb = GetTopLeftCornerOfText(0.5, 0.5, "TTT",  0.6)
---     local ww, hh = directx.get_text_size("TTT", 0.6)
---     DrawRect(aa - p, bb - p, ww + p*2, hh + p*2, BlackText)
---     DrawText(0.5, 0.5, "TTT", 1, 0.6, WhiteText, false)
--- end)
+local r1, g1, b1
+local hh = 0
+local tick = 0
+
+menu.toggle_loop(menuroot, "Rainobw Text Test", {}, "", function ()
+    r1, g1, b1, hh = RainbowRGB(hh, 1, 1, 40)
+    directx.draw_text(0.5, 0.5, "sdlfk;aj;", 1, 0.8, r1, g1, b1, 1.0,  false)
+end)
 
 local oppressor_aimbot = menu.list(menuroot, "Oppressor Aimbot", {"smokeoppressoraim"}, "")
 local missile_speed = 100
@@ -66,31 +67,37 @@ menu.toggle(oppressor_aimbot, FEATURES[1][2], {}, "", function (on)
         local localPed = getPlayerPed(players.user())
         local localcoords = getEntityCoords(localPed)
         local Missile = OBJECT.GET_CLOSEST_OBJECT_OF_TYPE(localcoords.x, localcoords.y, localcoords.z, 10, rockethash, false, true, true, true)
-        local closestPlayer = GetClosestPlayerWithRange_PIDBlacklist(500, AIM_BLACKLIST)
-        if (Missile ~= 0) and (closestPlayer) and (not PED.IS_PED_DEAD_OR_DYING(closestPlayer)) then
-            if ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(localPed, closestPlayer, 17) then
-                NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(Missile)
-                while ENTITY.DOES_ENTITY_EXIST(Missile) do
-                    local targetCoords = v3.new(PED.GET_PED_BONE_COORDS(closestPlayer, 20781, 0, 0, 0))
-                    local missileCoords = v3.new(getEntityCoords(Missile))
-                    local look = v3.lookAt(missileCoords, targetCoords) --int v3.lookAt(int a, int b)
-                    local dir = v3.toDir(look)
-                    local direction = GetTableFromV3Instance(dir)
-                    --coordinates done
-                    -- aimbot time:
-                    ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(Missile, 1, direction.x * missile_speed, direction.y * missile_speed, direction.z * missile_speed, true, false, true, true)
-                    if missile_ptfx then
-                        GRAPHICS.USE_PARTICLE_FX_ASSET("core")
-                        GRAPHICS.START_PARTICLE_FX_NON_LOOPED_ON_ENTITY("exp_grd_rpg_lod", Missile, 0, 0, 0, 0, 0, 0, 0.8, false, false, false)
+        if (Missile ~= 0) then --check for missile here, we will create thread to track it.
+            util.create_thread(function ()
+                local msl = Missile --set local variable for the global Missile, to be able to target mutliple missiles at once.
+                local closestPlayer = GetClosestPlayerWithRange_PIDBlacklist(500, AIM_BLACKLIST)
+                if (closestPlayer) and (not PED.IS_PED_DEAD_OR_DYING(closestPlayer)) then
+                    if ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(localPed, closestPlayer, 17) then
+                        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(msl)
+                        while ENTITY.DOES_ENTITY_EXIST(msl) do
+                            local targetCoords = v3.new(PED.GET_PED_BONE_COORDS(closestPlayer, 20781, 0, 0, 0))
+                            local missileCoords = v3.new(getEntityCoords(msl))
+                            local look = v3.lookAt(missileCoords, targetCoords) --int v3.lookAt(int a, int b)
+                            local dir = v3.toDir(look)
+                            local direction = GetTableFromV3Instance(dir)
+                            --coordinates done
+                            -- aimbot time:
+                            ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(msl, 1, direction.x * missile_speed, direction.y * missile_speed, direction.z * missile_speed, true, false, true, true)
+                            if missile_ptfx then
+                                GRAPHICS.USE_PARTICLE_FX_ASSET("core")
+                                GRAPHICS.START_PARTICLE_FX_NON_LOOPED_ON_ENTITY("exp_grd_rpg_lod", msl, 0, 0, 0, 0, 0, 0, 0.8, false, false, false)
+                            end
+                            --free v3
+                            v3.free(targetCoords)
+                            v3.free(missileCoords)
+                            v3.free(look)
+                            v3.free(dir)
+                            wait()
+                        end
                     end
-                    --free v3
-                    v3.free(targetCoords)
-                    v3.free(missileCoords)
-                    v3.free(look)
-                    v3.free(dir)
-                    wait()
                 end
-            end
+                util.stop_thread()
+            end)
         end
         wait()
     end
@@ -174,15 +181,6 @@ end
 local function toasttest()
     util.toast("activated!")
 end
-local test1
-local test2
-test1 = 0.5
-test2 = 0.5
-local test3
-test3 = false
-menu.toggle_loop(menuroot, "test", {}, "", function ()
-    test1, test2, test3 = MakeGuiButton(test1, test2, 0.005, 0.001, BlackText, WhiteText, WhiteText, 0.8, "Text1", "text2", 18, 348, toasttest, false, test3)
-end)
 
 --===================================================================================================================
 --===================================================================================================================
@@ -233,58 +231,13 @@ menu.toggle(hguilist, "Enable Hacked Client GUI", {}, "Bind this to a key.", fun
     hgui = toggle
     local plrot = ENTITY.GET_ENTITY_ROTATION(localped, 2)
     while hgui do
-        local localped = GetLocalPed()
-        -- <> <> <> <> Background Stuff <> <> <> <> --
-        DrawRect(0.0, 0.0, 1.0, 1.0, {r = 0, g = 0, b = 0, a = blackBGAlpha})
-        DrawTexture(hgui_smoke, 0.05, 0.05, 0.5, 0.5, 0.5, 0.5, 0, WhiteText)
-        DrawText(0.5, 0.55, "Remember to hold Right-Click When Dragging Stuff ;)", ALIGN_CENTRE, 0.4, WhiteText, false)
-        -- <> <> <> <> Background Stuff <> <> <> <> --
+        DrawBackgroundGUI(hgui_freeze, blackBGAlpha, hgui_smoke)
+        --draw shit here
 
-        -- <> <> <> <> Freeze Stuff <> <> <> <> --
-        if hgui_freeze then
-            ENTITY.FREEZE_ENTITY_POSITION(localped, true)
-            ENTITY.SET_ENTITY_ROTATION(localped, plrot.x, plrot.y, plrot.z, 2, true)
-        else ENTITY.FREEZE_ENTITY_POSITION(localped, false) end
-        PAD.DISABLE_CONTROL_ACTION(0, 270, true)-- 270	INPUT_LOOK_LEFT	MOUSE RIGHT	RIGHT STICK
-        PAD.DISABLE_CONTROL_ACTION(0, 271, true)-- 271	INPUT_LOOK_RIGHT	MOUSE RIGHT	RIGHT STICK
-        PAD.DISABLE_CONTROL_ACTION(0, 272, true)-- 272	INPUT_LOOK_UP	MOUSE DOWN	RIGHT STICK
-        PAD.DISABLE_CONTROL_ACTION(0, 273, true)-- 273	INPUT_LOOK_DOWN	MOUSE DOWN	RIGHT STICK
-        -- <> <> <> <> Freeze Stuff <> <> <> <> --
-
-        -- <> <> <> <> Attack Stuff <> <> <> <> --
-        PLAYER.DISABLE_PLAYER_FIRING(players.user(), true)
-        -- <> <> <> <> Attack Stuff <> <> <> <> --
-
-        -- <> <> <> <> Cursor Draw <> <> <> <> --
-        HUD._SET_MOUSE_CURSOR_ACTIVE_THIS_FRAME()
-        local xx, yy = GetCursorLocation()
-        DrawTexture(hgui_cigarrette, 0.006, 0.006, xx, yy, xx, yy, 0, WhiteText)
-        -- <> <> <> <> Cursor Draw <> <> <> <> --
-
-        --176 || INPUT_CELLPHONE_SELECT || ENTER / LEFT MOUSE BUTTON
-        --DrawRectUsingMiddlePoint(0.5, 0.5, 0.05, 0.05, WhiteText)
-        local check1
-        if not SilentAimbot then
-            check1 = DrawRect_Outline_MidPoint_Text(tab1x, tab1y, 0.005, 0.001, BlackText, WhiteText, WhiteText, 0.8, "Silent Aimbot" .. " (off)")
-        else
-            check1 = DrawRect_Outline_MidPoint_Text(tab1x, tab1y, 0.005, 0.001, BlackText, WhiteText, WhiteText, 0.8, "Silent Aimbot" .. " (on)")
-        end
-        PAD.DISABLE_CONTROL_ACTION(0, 176, true)
-        if CheckForControlPressedOnScreen(check1[1], check1[2], check1[3], check1[4], 348) then --348 || INPUT_MAP_POI || SCROLLWHEEL BUTTON (PRESS)
-            tab1x = xx
-            tab1y = yy
-        end
-        if CheckForControlJustPressedOnScreen(check1[1], check1[2], check1[3], check1[4], 18) then --237	INPUT_CURSOR_ACCEPT	LEFT MOUSE BUTTON ><<> 18	INPUT_SKIP_CUTSCENE	ENTER / LEFT MOUSE BUTTON / SPACEBAR
-            menu.trigger_commands("smokesilentaim")
-        end
+        DrawCursorGUI(hgui_cigarrette)
         wait()
     end
     ENTITY.FREEZE_ENTITY_POSITION(GetLocalPed(), false)
-    PAD.DISABLE_CONTROL_ACTION(0, 270, false)
-    PAD.DISABLE_CONTROL_ACTION(0, 271, false)
-    PAD.DISABLE_CONTROL_ACTION(0, 272, false)
-    PAD.DISABLE_CONTROL_ACTION(0, 273, false)
-    PAD.DISABLE_CONTROL_ACTION(0, 176, false)
 end)
 menu.toggle(hguilist, "Freeze Player Position while in GUI", {}, "", function (tog)
     hgui_freeze = tog
